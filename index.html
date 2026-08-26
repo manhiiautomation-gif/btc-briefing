@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BTC Daily Briefing</title>
+<meta name="description" content="Real-time BTC market intelligence for manual trading decisions">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<style>
+  :root {
+    --bg-primary: #09090b;
+    --bg-card: #18181b;
+    --bg-card-hover: #1f1f23;
+    --border: #27272a;
+    --text-primary: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    --accent-amber: #f59e0b;
+    --accent-amber-dim: rgba(245,158,11,0.15);
+    --green: #22c55e;
+    --green-dim: rgba(34,197,94,0.15);
+    --red: #ef4444;
+    --red-dim: rgba(239,68,68,0.15);
+    --blue: #3b82f6;
+    --blue-dim: rgba(59,130,246,0.15);
+    --orange: #f97316;
+    --orange-dim: rgba(249,115,22,0.15);
+    --cyan: #06b6d4;
+    --violet: #8b5cf6;
+    --emerald: #10b981;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Thai', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  /* Header */
+  .header {
+    border-bottom: 1px solid var(--border);
+    background: rgba(24,24,27,0.8);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .header-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: var(--accent-amber-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.025em; }
+  .header p { font-size: 11px; color: var(--text-muted); }
+  .header-right { display: flex; align-items: center; gap: 8px; }
+  .refresh-badge {
+    font-size: 11px;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 10px;
+  }
+  .refresh-btn {
+    background: none; border: none; color: var(--text-secondary);
+    cursor: pointer; padding: 4px; border-radius: 6px;
+    display: flex; align-items: center;
+  }
+  .refresh-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .refresh-btn.spinning svg { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Grid */
+  .main { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+  .grid { display: grid; gap: 16px; }
+  .grid-3 { grid-template-columns: 1fr; }
+  .grid-2-1 { grid-template-columns: 1fr; }
+  @media (min-width: 768px) {
+    .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .grid-2-1 { grid-template-columns: 2fr 1fr; }
+  }
+
+  /* Card */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .card-body { padding: 20px; }
+  .card-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .card-title .icon { width: 16px; height: 16px; }
+
+  /* Price Hero */
+  .price-hero .label { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
+  .price-hero .price-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .price-hero .price { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; }
+  .price-hero .thb-price { font-size: 14px; color: var(--text-muted); }
+  .change-badge {
+    display: inline-flex; align-items: center; gap: 2px;
+    font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 6px;
+  }
+  .change-badge.up { color: var(--green); background: var(--green-dim); }
+  .change-badge.down { color: var(--red); background: var(--red-dim); }
+  .trend-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
+    border: 1px solid;
+    margin-top: 8px;
+  }
+  .price-stats {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+    text-align: center;
+  }
+  .price-stats .stat-label { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
+  .price-stats .stat-value { font-size: 13px; font-weight: 600; }
+  .stat-green { color: var(--green); }
+  .stat-red { color: var(--red); }
+
+  /* Bot Card */
+  .bot-status-badge {
+    margin-left: auto;
+    font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .bot-status-badge.active { color: var(--green); border-color: rgba(34,197,94,0.4); }
+  .bot-status-badge.offline { color: var(--red); border-color: rgba(239,68,68,0.4); }
+  .bot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .bot-item .label { font-size: 11px; color: var(--text-muted); }
+  .bot-item .value { font-size: 13px; font-weight: 600; }
+  .bot-decision {
+    margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
+  }
+  .bot-decision .label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+  .bot-decision .decision-text { font-size: 13px; font-weight: 500; }
+  .bot-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 11px; color: var(--text-muted); }
+  .path-badge {
+    font-size: 10px; padding: 1px 8px; border-radius: 999px;
+    border: 1px solid rgba(245,158,11,0.4); color: var(--accent-amber);
+  }
+
+  /* Metric rows */
+  .metric { margin-bottom: 16px; }
+  .metric:last-child { margin-bottom: 0; }
+  .metric-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .metric-label { font-size: 12px; color: var(--text-secondary); }
+  .metric-value { font-size: 24px; font-weight: 700; }
+  .metric-value.lg { font-size: 28px; }
+  .metric-sub { display: flex; gap: 16px; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .metric-divider { border-top: 1px solid var(--border); margin: 12px 0; }
+
+  /* Zone Badge */
+  .zone-badge {
+    font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid;
+  }
+
+  /* RSI Bar */
+  .rsi-bar-bg {
+    width: 100%; height: 6px; border-radius: 999px;
+    background: var(--border); margin: 6px 0;
+  }
+  .rsi-bar-fill {
+    height: 100%; border-radius: 999px;
+    transition: width 0.5s ease;
+  }
+
+  /* Signal pills */
+  .signal-pill {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; padding: 4px 0;
+  }
+  .signal-pill svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .signal-bear { color: var(--red); }
+  .signal-warn { color: var(--accent-amber); }
+  .signal-none { color: var(--text-muted); }
+
+  /* Key Levels */
+  .level-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 0;
+  }
+  .level-row + .level-row { border-top: 1px solid var(--border); }
+  .level-label { font-size: 12px; color: var(--text-secondary); }
+  .level-right { display: flex; align-items: center; gap: 8px; }
+  .level-value { font-size: 12px; font-family: 'SF Mono', 'Fira Code', monospace; }
+  .level-dist { font-size: 12px; font-weight: 600; }
+  .level-note {
+    margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
+    font-size: 11px; color: var(--text-muted); line-height: 1.6;
+  }
+
+  /* Fear & Greed */
+  .fg-container { text-align: center; padding: 8px 0; }
+  .fg-gauge {
+    width: 160px; height: 80px; margin: 0 auto 12px; position: relative; overflow: hidden;
+  }
+  .fg-gauge-bg {
+    width: 160px; height: 160px; border-radius: 50%;
+    background: conic-gradient(
+      #ef4444 0deg, #f97316 72deg, #eab308 144deg, #22c55e 216deg, #06b6d4 360deg
+    );
+    position: absolute; top: 0; left: 0;
+    clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
+  }
+  .fg-gauge-inner {
+    width: 120px; height: 120px; border-radius: 50%;
+    background: var(--bg-card);
+    position: absolute; top: 20px; left: 20px;
+    clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
+  }
+  .fg-needle {
+    position: absolute; bottom: 0; left: 50%; width: 3px; height: 65px;
+    background: white; border-radius: 2px; transform-origin: bottom center;
+    transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-left: -1.5px;
+  }
+  .fg-needle::after {
+    content: ''; position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%);
+    width: 10px; height: 10px; border-radius: 50%; background: white;
+  }
+  .fg-value { font-size: 40px; font-weight: 700; margin: 8px 0 4px; }
+  .fg-label { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .fg-desc { font-size: 12px; color: var(--text-muted); }
+
+  /* Market Briefing */
+  .briefing-text { font-size: 14px; color: var(--text-secondary); line-height: 1.7; }
+
+  /* Sparkline */
+  .sparkline-container { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .sparkline-label { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+  .sparkline-svg { width: 100%; height: 60px; }
+
+  /* Footer */
+  .footer { text-align: center; padding: 16px; font-size: 11px; color: var(--text-muted); }
+
+  /* Loading */
+  .loading-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px; color: var(--text-muted);
+  }
+  .loading-spinner { animation: spin 1s linear infinite; }
+
+  /* Error */
+  .error-card {
+    max-width: 400px; margin: 80px auto; text-align: center;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 32px;
+  }
+  .error-card h2 { font-size: 16px; margin-bottom: 8px; }
+  .error-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+  .retry-btn {
+    background: var(--bg-card-hover); border: 1px solid var(--border); color: var(--text-primary);
+    padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px;
+  }
+  .retry-btn:hover { background: var(--border); }
+
+  /* Source tags */
+  .source-tag { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+  /* No data state */
+  .no-data { color: var(--text-muted); font-size: 12px; font-style: italic; }
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loading" class="loading-screen">
+  <svg class="loading-spinner" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+  <span>Loading BTC Briefing...</span>
+</div>
+
+<!-- Error Screen -->
+<div id="error" class="error-card" style="display:none">
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="margin:0 auto 12px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  <h2>Failed to Load Data</h2>
+  <p id="error-msg">Unknown error</p>
+  <button class="retry-btn" onclick="init()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+    Retry
+  </button>
+</div>
+
+<!-- Main Dashboard -->
+<div id="app" style="display:none">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-left">
+        <div class="logo">⚡</div>
+        <div>
+          <h1>BTC Daily Briefing</h1>
+          <p>Manual trading intelligence + Phoenix v5.1 status</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="refresh-badge" id="refresh-time">--:--</span>
+        <button class="refresh-btn" id="refresh-btn" onclick="init()" title="Refresh">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- Row 1: Price Hero + Phoenix Bot -->
+    <div class="grid grid-2-1" style="margin-bottom:16px">
+      <!-- Price Hero -->
+      <div class="card price-hero">
+        <div class="card-body">
+          <div class="label">BTC / USD</div>
+          <div class="price-row">
+            <span class="price" id="price-usd">--</span>
+            <span class="change-badge" id="change-24h">--</span>
+            <span class="trend-badge" id="trend-badge" style="display:none">--</span>
+          </div>
+          <div class="thb-price" id="price-thb" style="margin-top:4px">฿--</div>
+          <div class="price-stats">
+            <div>
+              <div class="stat-label">24h Volume</div>
+              <div class="stat-value" id="volume-24h">--</div>
+            </div>
+            <div>
+              <div class="stat-label">Market Cap</div>
+              <div class="stat-value" id="market-cap">--</div>
+            </div>
+            <div>
+              <div class="stat-label">vs ATH</div>
+              <div class="stat-value" id="vs-ath">--</div>
+            </div>
+          </div>
+          <!-- 30d Sparkline -->
+          <div class="sparkline-container">
+            <div class="sparkline-label">30-Day Price</div>
+            <svg class="sparkline-svg" id="sparkline" preserveAspectRatio="none"></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phoenix Bot Status -->
+      <div class="card">
+        <div class="card-body">
+          <div class="card-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+            Phoenix v5.1
+            <span class="bot-status-badge" id="bot-status-badge">--</span>
+          </div>
+          <div id="bot-content">
+            <div class="no-data">Loading bot status...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: On-Chain + Momentum + Key Levels -->
+    <div class="grid grid-3" style="margin-bottom:16px">
+      <!-- On-Chain Pulse -->
+      <div class="card">
+        <div class="card-body">
+          <div class="card-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><path d="M12 2v20"/><path d="M2 12h20"/><path d="m4.93 4.93 14.14 14.14"/><path d="m19.07 4.93-14.14 14.14"/></svg>
+            On-Chain Pulse
+          </div>
+          <div id="onchain-content">
+            <div class="no-data">Loading on-chain data...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Technical Momentum -->
+      <div class="card">
+        <div class="card-body">
+          <div class="card-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Technical Momentum
+          </div>
+          <div id="momentum-content">
+            <div class="no-data">Loading momentum data...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fear & Greed + Key Levels -->
+      <div class="card">
+        <div class="card-body">
+          <div class="card-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            Fear & Greed
+          </div>
+          <div id="fg-content">
+            <div class="no-data">Loading...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: Key Levels -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-body">
+        <div class="card-title">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+          Key On-Chain Levels
+        </div>
+        <div id="levels-content">
+          <div class="no-data">Loading key levels...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 4: Market Briefing -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-body">
+        <div class="card-title">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
+          Market Briefing
+        </div>
+        <p class="briefing-text" id="briefing-text">Loading market narrative...</p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      Phoenix v5.1 Briefing Dashboard | Auto-refreshes every 5 min | For manual trading decisions only
+    </div>
+  </main>
+</div>
+
+<script>
+// ─── Config ───
+const CONFIG = {
+  // On-chain signal data (updated by btc-signal-analyzer)
+  SIGNAL_URL: 'https://raw.githubusercontent.com/manhiiautomation-gif/btc-signal-analyzer/main/output/signal_score.json',
+  // Phoenix bot state (pushed by bot cron)
+  BOT_STATE_URL: 'https://raw.githubusercontent.com/manhiiautomation-gif/btc-signal-analyzer/main/output/bot_state.json',
+  // Public APIs
+  BINANCE_API: 'https://api.binance.com/api/v3',
+  BITKUB_API: 'https://api.bitkub.com/api/market/ticker?sym=THB_BTC',
+  FG_API: 'https://api.alternative.me/fng/?limit=1',
+  REFRESH_INTERVAL: 5 * 60 * 1000,
+  ATH_USD: 109588,
+};
+
+// ─── State ───
+let state = {
+  price: { usd: 0, thb: 0, change24h: 0, volume: 0, mcap: 0 },
+  onchain: { mvrv: 0, mvrv_z: 0, nupl: 0, sopr: null, fng: null },
+  signal: null,
+  bot: null,
+  sparkline: [],
+};
+
+// ─── Helpers ───
+function fmt(n, d=2) {
+  if (n >= 1e12) return (n/1e12).toFixed(d) + 'T';
+  if (n >= 1e9) return (n/1e9).toFixed(d) + 'B';
+  if (n >= 1e6) return (n/1e6).toFixed(d) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(d) + 'K';
+  return n.toFixed(d);
+}
+
+function fmtUSD(n) { return '$' + n.toLocaleString('en-US', {maximumFractionDigits: 0}); }
+function fmtTHB(n) { return '฿' + n.toLocaleString('th-TH', {maximumFractionDigits: 0}); }
+
+function getMvrvZone(mvrv) {
+  if (mvrv < 1.0) return { zone: 'Deep Accumulation', color: '#22c55e' };
+  if (mvrv < 1.5) return { zone: 'Accumulation', color: '#86efac' };
+  if (mvrv < 2.0) return { zone: 'Neutral', color: '#eab308' };
+  if (mvrv < 2.5) return { zone: 'Euphoria', color: '#f97316' };
+  if (mvrv < 3.5) return { zone: 'Overvalued', color: '#ef4444' };
+  return { zone: 'Extreme Euphoria', color: '#dc2626' };
+}
+
+function getNuplPhase(nupl) {
+  if (nupl < 0) return 'Capitulation';
+  if (nupl < 0.25) return 'Fear';
+  if (nupl < 0.5) return 'Optimism';
+  if (nupl < 0.75) return 'Belief';
+  return 'Euphoria';
+}
+
+function getFgColor(val) {
+  if (val <= 25) return '#ef4444';
+  if (val <= 45) return '#f97316';
+  if (val <= 55) return '#eab308';
+  if (val <= 75) return '#22c55e';
+  return '#06b6d4';
+}
+
+function getFgLabel(val) {
+  if (val <= 25) return 'Extreme Fear';
+  if (val <= 45) return 'Fear';
+  if (val <= 55) return 'Neutral';
+  if (val <= 75) return 'Greed';
+  return 'Extreme Greed';
+}
+
+function getFgDesc(val) {
+  if (val <= 25) return 'Historically excellent buying opportunity. Markets are in panic.';
+  if (val <= 45) return 'Fear dominates. Good accumulation zone for long-term investors.';
+  if (val <= 55) return 'Market is undecided. Wait for clearer signals before acting.';
+  if (val <= 75) return 'Greed is building. Be cautious with new positions.';
+  return 'Extreme greed — historically a warning sign. Consider taking profits.';
+}
+
+function getTrend(price, mvrv) {
+  // Use MVRV as primary trend indicator since we don't have SMA200 from public API
+  if (mvrv < 1.0) return { trend: 'Deep Accumulation', color: '#22c55e' };
+  if (mvrv < 1.5) return { trend: 'Accumulation', color: '#86efac' };
+  if (mvrv < 2.0) return { trend: 'Neutral-Bull', color: '#eab308' };
+  if (mvrv < 2.5) return { trend: 'Euphoria', color: '#f97316' };
+  return { trend: 'Overvalued', color: '#ef4444' };
+}
+
+async function fetchJSON(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
+  return res.json();
+}
+
+// ─── Data Fetchers ───
+
+async function fetchBinancePrice() {
+  // 24h ticker
+  const ticker = await fetchJSON(`${CONFIG.BINANCE_API}/ticker/24hr?symbol=BTCUSDT`);
+  state.price.usd = parseFloat(ticker.lastPrice);
+  state.price.change24h = parseFloat(ticker.priceChangePercent);
+  state.price.volume = parseFloat(ticker.quoteVolume);
+
+  // Market cap (approximate: price * 19.8M circulating supply)
+  state.price.mcap = state.price.usd * 19_800_000;
+
+  // 30-day klines for sparkline
+  const klines = await fetchJSON(`${CONFIG.BINANCE_API}/klines?symbol=BTCUSDT&interval=1d&limit=30`);
+  state.sparkline = klines.map(k => parseFloat(k[4])); // close prices
+}
+
+async function fetchBitkubPrice() {
+  try {
+    const data = await fetchJSON(CONFIG.BITKUB_API);
+    if (data && data.result && data.result.THB_BTC) {
+      state.price.thb = parseFloat(data.result.THB_BTC.last);
+    }
+  } catch (e) {
+    // Fallback: estimate THB from USD (approx 35 THB/USD)
+    state.price.thb = state.price.usd * 35;
+  }
+}
+
+async function fetchFearGreed() {
+  try {
+    const data = await fetchJSON(CONFIG.FG_API);
+    if (data && data.data && data.data[0]) {
+      state.onchain.fng = {
+        value: parseInt(data.data[0].value),
+        classification: data.data[0].value_classification,
+        timestamp: data.data[0].timestamp,
+      };
+    }
+  } catch (e) {
+    console.warn('Fear & Greed API failed:', e);
+  }
+}
+
+async function fetchOnchainSignal() {
+  try {
+    const data = await fetchJSON(CONFIG.SIGNAL_URL);
+    state.signal = data;
+    if (data.indicators) {
+      const mvrv_ind = data.indicators.mvrv_z_score;
+      if (mvrv_ind && mvrv_ind.value !== null) {
+        // MVRV Z-Score is available, derive MVRV from NUPL
+        state.onchain.mvrv_z = mvrv_ind.value;
+      }
+      const nupl_ind = data.indicators.nupl;
+      if (nupl_ind && nupl_ind.value !== null) {
+        state.onchain.nupl = nupl_ind.value;
+        // Derive MVRV from NUPL: NUPL = 1 - 1/MVRV, so MVRV = 1/(1-NUPL)
+        if (nupl_ind.value < 1) {
+          state.onchain.mvrv = 1 / (1 - nupl_ind.value);
+        }
+      }
+      const sopr_ind = data.indicators.sopr;
+      if (sopr_ind && sopr_ind.value !== null) {
+        state.onchain.sopr = sopr_ind.value;
+      }
+    }
+  } catch (e) {
+    console.warn('Signal score fetch failed:', e);
+  }
+}
+
+async function fetchBotState() {
+  try {
+    const data = await fetchJSON(CONFIG.BOT_STATE_URL);
+    state.bot = data;
+  } catch (e) {
+    console.warn('Bot state fetch failed:', e);
+    state.bot = null;
+  }
+}
+
+// ─── Renderers ───
+
+function renderPrice() {
+  const { usd, thb, change24h, volume, mcap } = state.price;
+  document.getElementById('price-usd').textContent = fmtUSD(usd);
+  document.getElementById('price-thb').textContent = fmtTHB(thb);
+
+  // 24h change
+  const chEl = document.getElementById('change-24h');
+  const isUp = change24h >= 0;
+  chEl.className = 'change-badge ' + (isUp ? 'up' : 'down');
+  chEl.innerHTML = (isUp ? '▲' : '▼') + ' ' + Math.abs(change24h).toFixed(2) + '%';
+
+  // Trend badge
+  const trend = getTrend(usd, state.onchain.mvrv);
+  const tbEl = document.getElementById('trend-badge');
+  tbEl.style.display = 'inline-flex';
+  tbEl.style.color = trend.color;
+  tbEl.style.borderColor = trend.color + '40';
+  tbEl.style.background = trend.color + '20';
+  tbEl.textContent = trend.trend;
+
+  // Stats
+  document.getElementById('volume-24h').textContent = '$' + fmt(volume, 1);
+  document.getElementById('market-cap').textContent = '$' + fmt(mcap, 1);
+
+  const vsAth = ((usd - CONFIG.ATH_USD) / CONFIG.ATH_USD * 100);
+ const athEl = document.getElementById('vs-ath');
+  athEl.className = 'stat-value ' + (vsAth >= 0 ? 'stat-green' : 'stat-red');
+  athEl.textContent = (vsAth >= 0 ? '+' : '') + vsAth.toFixed(1) + '%';
+
+  // Sparkline
+  renderSparkline();
+}
+
+function renderSparkline() {
+  const data = state.sparkline;
+  if (data.length < 2) return;
+
+  const svg = document.getElementById('sparkline');
+  const w = 600, h = 60;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+
+  const points = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((v - min) / range) * (h - 4) - 2;
+    return `${x},${y}`;
+  }).join(' ');
+
+  const areaPoints = `0,${h} ${points} ${w},${h}`;
+  const isUp = data[data.length-1] >= data[0];
+  const color = isUp ? '#22c55e' : '#ef4444';
+
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <polygon points="${areaPoints}" fill="url(#sparkGrad)"/>
+    <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"/>
+    <circle cx="${(data.length-1)/(data.length-1)*w}" cy="${h - ((data[data.length-1]-min)/range)*(h-4)-2}" r="3" fill="${color}"/>
+  `;
+}
+
+function renderOnChain() {
+  const { mvrv, nupl, sopr } = state.onchain;
+  const mv = getMvrvZone(mvrv);
+
+  let html = '';
+
+  // MVRV
+  html += `<div class="metric">`;
+  html += `  <div class="metric-header">`;
+  html += `    <span class="metric-label">MVRV Ratio</span>`;
+  html += `    <span class="zone-badge" style="color:${mv.color};border-color:${mv.color}40;background:${mv.color}20">${mv.zone}</span>`;
+  html += `  </div>`;
+  html += `  <div class="metric-value lg">${mvrv.toFixed(3)}</div>`;
+  html += `  <div class="metric-sub"><span>Z-Score: ${state.onchain.mvrv_z.toFixed(2)}</span></div>`;
+  html += `</div>`;
+
+  // NUPL
+  html += `<div class="metric-divider"></div>`;
+  html += `<div class="metric">`;
+  html += `  <div class="metric-header">`;
+  html += `    <span class="metric-label">NUPL</span>`;
+  html += `    <span style="font-size:11px;color:var(--text-secondary)">${getNuplPhase(nupl)}</span>`;
+  html += `  </div>`;
+  html += `  <div class="metric-value">${nupl.toFixed(3)}</div>`;
+  html += `</div>`;
+
+  // SOPR
+  html += `<div class="metric-divider"></div>`;
+  html += `<div class="metric">`;
+  html += `  <div class="metric-header">`;
+  html += `    <span class="metric-label">SOPR</span>`;
+  if (sopr !== null) {
+    const soprSignal = sopr < 0.9 ? 'Heavy Loss Selling' : sopr < 1.0 ? 'Selling at Loss' : sopr < 1.1 ? 'Normal' : sopr < 1.3 ? 'Profit Taking' : 'Strong Profit Taking';
+    html += `    <span style="font-size:11px;color:${sopr < 1 ? 'var(--green)' : 'var(--text-secondary)'}">${soprSignal}</span>`;
+  }
+  html += `  </div>`;
+  if (sopr !== null) {
+    html += `  <div class="metric-value" style="color:${sopr < 1 ? 'var(--green)' : 'inherit'}">${sopr.toFixed(3)}</div>`;
+  } else {
+    html += `  <div class="no-data">N/A (data not available)</div>`;
+  }
+  html += `</div>`;
+
+  // Signal Score from btc-signal-analyzer
+  if (state.signal && state.signal.score !== undefined) {
+    html += `<div class="metric-divider"></div>`;
+    html += `<div class="metric">`;
+    html += `  <div class="metric-header">`;
+    html += `    <span class="metric-label">Signal Score</span>`;
+    const sc = state.signal.score;
+    const scColor = sc < 30 ? '#22c55e' : sc < 50 ? '#86efac' : sc < 70 ? '#eab308' : sc < 85 ? '#f97316' : '#ef4444';
+    html += `    <span class="zone-badge" style="color:${scColor};border-color:${scColor}40;background:${scColor}20">${state.signal.zone?.label || 'Neutral'}</span>`;
+    html += `  </div>`;
+    html += `  <div class="metric-value">${sc.toFixed(1)}<span style="font-size:14px;color:var(--text-muted)"> / 100</span></div>`;
+    html += `  <div class="source-tag">Source: btc-signal-analyzer (${state.signal.meta?.available_indicators || 0}/${state.signal.meta?.total_indicators || 0} indicators)</div>`;
+    html += `</div>`;
+  }
+
+  document.getElementById('onchain-content').innerHTML = html;
+}
+
+function renderMomentum() {
+  // Since we don't have RSI/MACD from public APIs alone,
+  // show derivative/sentiment data from signal_score.json
+  const s = state.signal;
+  let html = '';
+
+  if (s && s.indicators) {
+    // Funding Rate
+    const fr = s.indicators.funding_rate;
+    if (fr && fr.value !== null) {
+      html += `<div class="metric">`;
+      html += `  <div class="metric-header">`;
+      html += `    <span class="metric-label">Funding Rate (7d avg)</span>`;
+      const frColor = fr.value > 0.01 ? 'var(--red)' : fr.value < 0 ? 'var(--green)' : 'var(--text-secondary)';
+      html += `    <span style="font-size:11px;color:${frColor}">${fr.value > 0.01 ? 'High Long Bias' : fr.value < 0 ? 'Short Bias' : 'Neutral'}</span>`;
+      html += `  </div>`;
+      html += `  <div class="metric-value">${(fr.value * 100).toFixed(4)}%</div>`;
+      html += `  <div class="metric-sub"><span>Pct: ${(fr.percentile * 100).toFixed(1)}%</span></div>`;
+      html += `</div>`;
+    }
+
+    // Taker Buy/Sell Ratio
+    const taker = s.indicators.taker_buy_sell_ratio;
+    if (taker && taker.value !== null) {
+      html += `<div class="metric-divider"></div>`;
+      html += `<div class="metric">`;
+      html += `  <div class="metric-header">`;
+      html += `    <span class="metric-label">Taker Buy/Sell Ratio</span>`;
+      const tColor = taker.value > 1.1 ? 'var(--green)' : taker.value < 0.9 ? 'var(--red)' : 'var(--text-secondary)';
+      html += `    <span style="font-size:11px;color:${tColor}">${taker.value > 1.1 ? 'Buyers Dominant' : taker.value < 0.9 ? 'Sellers Dominant' : 'Balanced'}</span>`;
+      html += `  </div>`;
+      html += `  <div class="metric-value">${taker.value.toFixed(3)}</div>`;
+      html += `</div>`;
+    }
+
+    // Exchange Netflow
+    const nf = s.indicators.exchange_netflow;
+    if (nf && nf.value !== null) {
+      html += `<div class="metric-divider"></div>`;
+      html += `<div class="metric">`;
+      html += `  <div class="metric-header">`;
+      html += `    <span class="metric-label">Exchange Netflow (7d)</span>`;
+      const nfColor = nf.value > 0 ? 'var(--red)' : 'var(--green)';
+      const nfLabel = nf.value > 0 ? 'Inflow (Selling Pressure)' : 'Outflow (Accumulation)';
+      html += `    <span style="font-size:11px;color:${nfColor}">${nfLabel}</span>`;
+      html += `  </div>`;
+      html += `  <div class="metric-value" style="color:${nfColor}">${nf.value > 0 ? '+' : ''}${nf.value.toFixed(0)} BTC</div>`;
+      html += `</div>`;
+    }
+
+    // Whale Ratio
+    const wr = s.indicators.whale_ratio;
+    if (wr && wr.value !== null) {
+      html += `<div class="metric-divider"></div>`;
+      html += `<div class="metric">`;
+      html += `  <div class="metric-header">`;
+      html += `    <span class="metric-label">Whale Ratio (7d)</span>`;
+      const wrColor = wr.value > 0.5 ? 'var(--red)' : 'var(--green)';
+      html += `    <span style="font-size:11px;color:${wrColor}">${wr.value > 0.5 ? 'High Whale Activity' : 'Normal'}</span>`;
+      html += `  </div>`;
+      html += `  <div class="metric-value">${(wr.value * 100).toFixed(1)}%</div>`;
+      html += `</div>`;
+    }
+  } else {
+    html = `<div class="no-data">On-chain signal data not available yet. Waiting for btc-signal-analyzer update.</div>`;
+  }
+
+  document.getElementById('momentum-content').innerHTML = html;
+}
+
+function renderFearGreed() {
+  const fg = state.onchain.fng;
+  if (!fg) {
+    document.getElementById('fg-content').innerHTML = `<div class="no-data">Fear & Greed data not available</div>`;
+    return;
+  }
+
+  const angle = (fg.value / 100) * 180 - 90; // -90 to +90
+  const color = getFgColor(fg.value);
+  const label = getFgLabel(fg.value);
+  const desc = getFgDesc(fg.value);
+
+  let html = `<div class="fg-container">`;
+  html += `  <div class="fg-gauge">`;
+  html += `    <div class="fg-gauge-bg"></div>`;
+  html += `    <div class="fg-gauge-inner"></div>`;
+  html += `    <div class="fg-needle" style="transform:rotate(${angle}deg)"></div>`;
+  html += `  </div>`;
+  html += `  <div class="fg-value" style="color:${color}">${fg.value}</div>`;
+  html += `  <div class="fg-label" style="color:${color}">${label}</div>`;
+  html += `  <div class="fg-desc">${desc}</div>`;
+  html += `</div>`;
+
+  document.getElementById('fg-content').innerHTML = html;
+}
+
+function renderKeyLevels() {
+  const { usd } = state.price;
+  const s = state.signal;
+  let levels = [];
+
+  // Derive key levels from available data
+  // MVRV = price / realized_price, so realized_price = price / MVRV
+  const rp = state.onchain.mvrv > 0 ? usd / state.onchain.mvrv : 0;
+  // LTH-RP approximation (typically 1.15x realized price)
+  const lthRp = rp * 1.15;
+
+  if (rp > 0) {
+    levels.push({ label: 'Realized Price (derived)', value: rp, dist: ((usd - rp) / rp) * 100 });
+  }
+  if (lthRp > 0) {
+    levels.push({ label: 'LTH Realized Price (est.)', value: lthRp, dist: ((usd - lthRp) / lthRp) * 100 });
+  }
+  levels.push({ label: 'ATH', value: CONFIG.ATH_USD, dist: ((usd - CONFIG.ATH_USD) / CONFIG.ATH_USD) * 100 });
+
+  // Add from bot state if available
+  if (state.bot && state.bot.last_indicators) {
+    const bi = state.bot.last_indicators;
+    if (bi.realized_price > 0) {
+      levels[0] = { label: 'Realized Price', value: bi.realized_price / 35, dist: ((usd - bi.realized_price/35) / (bi.realized_price/35)) * 100 };
+    }
+    if (bi.lth_realized_price > 0) {
+      levels[1] = { label: 'LTH Realized Price', value: bi.lth_realized_price / 35, dist: ((usd - bi.lth_realized_price/35) / (bi.lth_realized_price/35)) * 100 };
+    }
+  }
+
+  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0">';
+  levels.forEach(l => {
+    const dColor = l.dist >= 0 ? 'var(--green)' : 'var(--red)';
+    html += `<div class="level-row">`;
+    html += `  <span class="level-label">${l.label}</span>`;
+    html += `  <div class="level-right">`;
+    html += `    <span class="level-value">${fmtUSD(l.value)}</span>`;
+    html += `    <span class="level-dist" style="color:${dColor}">${l.dist >= 0 ? '+' : ''}${l.dist.toFixed(1)}%</span>`;
+    html += `  </div>`;
+    html += `</div>`;
+  });
+  html += '</div>';
+  html += `<div class="level-note">`;
+  html += `  Below Realized Price = historically profitable accumulation zone. `;
+  html += `  Above LTH-RP = long-term holders in profit (sell pressure zone). `;
+  html += `  Levels derived from MVRV: RP ≈ Price / MVRV.`;
+  html += `</div>`;
+
+  document.getElementById('levels-content').innerHTML = html;
+}
+
+function renderBot() {
+  const bot = state.bot;
+  const badge = document.getElementById('bot-status-badge');
+
+  if (!bot) {
+    badge.textContent = 'NO DATA';
+    badge.className = 'bot-status-badge offline';
+    document.getElementById('bot-content').innerHTML = `
+      <div class="no-data" style="text-align:center;padding:16px 0">
+        Phoenix bot state not available.<br>
+        <span style="font-size:11px">Push bot_state.json to btc-signal-analyzer repo to enable live status.</span>
+      </div>
+    `;
+    return;
+  }
+
+  badge.textContent = bot.last_run_date ? 'ACTIVE' : 'OFFLINE';
+  badge.className = 'bot-status-badge ' + (bot.last_run_date ? 'active' : 'offline');
+
+  const bi = bot.last_indicators || {};
+  const ld = bot.last_decision || {};
+  const price = bi.price || 0;
+  const thbPrice = price || state.price.thb;
+  const btcBal = bot.last_btc_balance || 0;
+  const cashBal = bot.last_cash_balance || 0;
+  const portfolioVal = bot.last_portfolio_value || 0;
+  const avgCost = btcBal > 0 ? (bot.adjusted_invested || bot.total_invested || 0) / btcBal : 0;
+  const unrealizedPnl = avgCost > 0 ? ((price - avgCost) / avgCost) * 100 : 0;
+
+  let decisionText = 'No trade';
+  if (ld.buy_amount > 0) decisionText = `BUY ${ld.buy_amount.toLocaleString()} ${bot.last_exchange_currency || 'THB'}`;
+  else if (ld.sell_amount > 0) decisionText = `SELL ${ld.sell_amount.toLocaleString()} ${bot.last_exchange_currency || 'THB'}`;
+
+  const pnlColor = unrealizedPnl >= 0 ? 'var(--green)' : 'var(--red)';
+
+  let html = `<div class="bot-grid">`;
+  html += `  <div class="bot-item"><div class="label">Portfolio</div><div class="value">${fmtTHB(portfolioVal)}</div></div>`;
+  html += `  <div class="bot-item"><div class="label">P&L</div><div class="value" style="color:${pnlColor}">${unrealizedPnl >= 0 ? '+' : ''}${unrealizedPnl.toFixed(1)}%</div></div>`;
+  html += `  <div class="bot-item"><div class="label">BTC</div><div class="value" style="font-family:monospace;font-size:12px">${btcBal.toFixed(6)}</div></div>`;
+  html += `  <div class="bot-item"><div class="label">Cash</div><div class="value">${fmtTHB(cashBal)}</div></div>`;
+  html += `</div>`;
+  html += `<div class="bot-decision">`;
+  html += `  <div class="label">Last Decision</div>`;
+  html += `  <div class="decision-text">${decisionText}</div>`;
+  html += `  <div class="bot-meta">`;
+  html += `    Multiplier: ${ld.multiplier || 0}x | MVRV: ${bi.mvrv || '--'} | Sell Score: ${bi.sell_score || 0}`;
+  if (bi.path_taken && bi.path_taken !== 'none') {
+    html += `    <span class="path-badge">${bi.path_taken}</span>`;
+  }
+  html += `  </div>`;
+  html += `  <div class="bot-meta" style="margin-top:4px">`;
+  html += `    Runs: ${bot.run_count || 0} | Buys: ${bot.buy_count || 0} | Sells: ${bot.sell_count || 0} | Last: ${bot.last_run_date || 'N/A'}`;
+  html += `  </div>`;
+  html += `</div>`;
+
+  document.getElementById('bot-content').innerHTML = html;
+}
+
+function renderBriefing() {
+  const { mvrv, nupl, fng } = state.onchain;
+  const parts = [];
+
+  // MVRV
+  if (mvrv < 1.0) {
+    parts.push(`MVRV at ${mvrv.toFixed(2)} is in deep accumulation zone — historically strong buy signals.`);
+  } else if (mvrv < 1.5) {
+    parts.push(`MVRV at ${mvrv.toFixed(2)} — still in accumulation territory, good for DCA.`);
+  } else if (mvrv < 2.0) {
+    parts.push(`MVRV at ${mvrv.toFixed(2)} — neutral zone, normal DCA pace recommended.`);
+  } else if (mvrv < 2.5) {
+    parts.push(`MVRV at ${mvrv.toFixed(2)} — entering euphoria, consider reducing buy size.`);
+  } else {
+    parts.push(`MVRV at ${mvrv.toFixed(2)} — overvalued territory, selling signals may activate.`);
+  }
+
+  // Fear & Greed
+  if (fng) {
+    if (fng.value <= 25) {
+      parts.push(`Fear & Greed Index at ${fng.value} (Extreme Fear) — historically one of the best buying opportunities.`);
+    } else if (fng.value >= 75) {
+      parts.push(`Fear & Greed Index at ${fng.value} (Extreme Greed) — caution advised, consider taking some profits.`);
+    }
+  }
+
+  // Signal Score
+  if (state.signal && state.signal.score !== undefined) {
+    const sc = state.signal.score;
+    if (sc < 30) {
+      parts.push(`Signal Score: ${sc.toFixed(1)}/100 — Strong buy signal from multi-indicator analysis.`);
+    } else if (sc > 70) {
+      parts.push(`Signal Score: ${sc.toFixed(1)}/100 — Elevated risk, most indicators suggest caution.`);
+    }
+  }
+
+  // Funding rate warning
+  if (state.signal && state.signal.indicators) {
+    const fr = state.signal.indicators.funding_rate;
+    if (fr && fr.value > 0.01) {
+      parts.push(`High funding rate (${(fr.value*100).toFixed(4)}%) suggests crowded long positioning — potential for squeeze.`);
+    }
+  }
+
+  document.getElementById('briefing-text').textContent = parts.join(' ');
+}
+
+// ─── Main ───
+
+async function init() {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+
+  try {
+    // Fetch all data in parallel
+    await Promise.allSettled([
+      fetchBinancePrice(),
+      fetchBitkubPrice(),
+      fetchFearGreed(),
+      fetchOnchainSignal(),
+      fetchBotState(),
+    ]);
+
+    // Hide loading, show app
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+
+    // Render all sections
+    renderPrice();
+    renderOnChain();
+    renderMomentum();
+    renderFearGreed();
+    renderKeyLevels();
+    renderBot();
+    renderBriefing();
+
+    // Update time
+    document.getElementById('refresh-time').textContent =
+      new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+
+  } catch (e) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display = 'block';
+    document.getElementById('error-msg').textContent = String(e);
+  } finally {
+    btn.classList.remove('spinning');
+  }
+}
+
+// Auto-refresh
+init();
+setInterval(init, CONFIG.REFRESH_INTERVAL);
+</script>
+
+</body>
+</html>
