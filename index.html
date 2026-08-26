@@ -224,7 +224,7 @@
   .fg-gauge-bg {
     width: 160px; height: 160px; border-radius: 50%;
     background: conic-gradient(
-      #ef4444 0deg, #f97316 72deg, #eab308 144deg, #22c55e 216deg, #06b6d4 360deg
+      from 270deg, #ef4444 0deg, #f97316 45deg, #eab308 90deg, #22c55e 135deg, #06b6d4 180deg, #06b6d4 360deg
     );
     position: absolute; top: 0; left: 0;
     clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
@@ -545,18 +545,22 @@ async function fetchJSON(url) {
 // ─── Data Fetchers ───
 
 async function fetchBinancePrice() {
-  // 24h ticker
-  const ticker = await fetchJSON(`${CONFIG.BINANCE_API}/ticker/24hr?symbol=BTCUSDT`);
-  state.price.usd = parseFloat(ticker.lastPrice);
-  state.price.change24h = parseFloat(ticker.priceChangePercent);
-  state.price.volume = parseFloat(ticker.quoteVolume);
+  try {
+    // 24h ticker
+    const ticker = await fetchJSON(`${CONFIG.BINANCE_API}/ticker/24hr?symbol=BTCUSDT`);
+    state.price.usd = parseFloat(ticker.lastPrice);
+    state.price.change24h = parseFloat(ticker.priceChangePercent);
+    state.price.volume = parseFloat(ticker.quoteVolume);
 
-  // Market cap (approximate: price * 19.8M circulating supply)
-  state.price.mcap = state.price.usd * 19_800_000;
+    // Market cap (approximate: price * 19.8M circulating supply)
+    state.price.mcap = state.price.usd * 19_800_000;
 
-  // 30-day klines for sparkline
-  const klines = await fetchJSON(`${CONFIG.BINANCE_API}/klines?symbol=BTCUSDT&interval=1d&limit=30`);
-  state.sparkline = klines.map(k => parseFloat(k[4])); // close prices
+    // 30-day klines for sparkline
+    const klines = await fetchJSON(`${CONFIG.BINANCE_API}/klines?symbol=BTCUSDT&interval=1d&limit=30`);
+    state.sparkline = klines.map(k => parseFloat(k[4])); // close prices
+  } catch (e) {
+    console.warn('Binance API failed:', e);
+  }
 }
 
 async function fetchBitkubPrice() {
@@ -567,8 +571,8 @@ async function fetchBitkubPrice() {
       state.price.thb = parseFloat(data.THB_BTC.last);
     }
   } catch (e) {
-    // Fallback: estimate THB from USD (approx 35 THB/USD)
-    state.price.thb = state.price.usd * 35;
+    // Fallback: estimate THB from USD (approx 33 THB/USD)
+    state.price.thb = state.price.usd * 33;
   }
 }
 
@@ -815,7 +819,7 @@ function renderMomentum() {
       html += `    <span style="font-size:11px;color:${frColor}">${fr.raw_value > 0.01 ? 'High Long Bias' : fr.raw_value < 0 ? 'Short Bias' : 'Neutral'}</span>`;
       html += `  </div>`;
       html += `  <div class="metric-value">${(fr.raw_value * 100).toFixed(4)}%</div>`;
-      html += `  <div class="metric-sub"><span>Pct: ${(fr.percentile * 100).toFixed(1)}%</span></div>`;
+      html += `  <div class="metric-sub"><span>Pct: ${((fr.percentile || 0) * 100).toFixed(1)}%</span></div>`;
       html += `</div>`;
     }
 
@@ -891,7 +895,7 @@ function renderFearGreed() {
     return;
   }
 
-  const angle = (fg.value / 100) * 180 - 90; // -90 to +90
+  const angle = (fg.value / 100) * 180 - 90; // 0=left(red/Fear), 50=up(yellow/Neutral), 100=right(cyan/Greed)
   const color = getFgColor(fg.value);
   const label = getFgLabel(fg.value);
   const desc = getFgDesc(fg.value);
@@ -929,14 +933,23 @@ function renderKeyLevels() {
   }
   levels.push({ label: 'ATH', value: CONFIG.ATH_USD, dist: ((usd - CONFIG.ATH_USD) / CONFIG.ATH_USD) * 100 });
 
-  // Add from bot state if available
+  // Compute THB/USD rate dynamically if possible
+  const thbUsdRate = (state.price.thb > 0 && state.price.usd > 0) ? state.price.thb / state.price.usd : 35;
+
+  // Add from bot state if available (match by label, never overwrite ATH)
   if (state.bot && state.bot.last_indicators) {
     const bi = state.bot.last_indicators;
     if (bi.realized_price > 0) {
-      levels[0] = { label: 'Realized Price', value: bi.realized_price / 35, dist: ((usd - bi.realized_price/35) / (bi.realized_price/35)) * 100 };
+      const rpUsd = bi.realized_price / thbUsdRate;
+      const idx = levels.findIndex(l => l.label.includes('Realized Price') && !l.label.includes('LTH'));
+      if (idx >= 0) { levels[idx] = { label: 'Realized Price', value: rpUsd, dist: ((usd - rpUsd) / rpUsd) * 100 }; }
+      else { levels.splice(levels.length - 1, 0, { label: 'Realized Price', value: rpUsd, dist: ((usd - rpUsd) / rpUsd) * 100 }); }
     }
     if (bi.lth_realized_price > 0) {
-      levels[1] = { label: 'LTH Realized Price', value: bi.lth_realized_price / 35, dist: ((usd - bi.lth_realized_price/35) / (bi.lth_realized_price/35)) * 100 };
+      const lthUsd = bi.lth_realized_price / thbUsdRate;
+      const idx = levels.findIndex(l => l.label.includes('LTH'));
+      if (idx >= 0) { levels[idx] = { label: 'LTH Realized Price', value: lthUsd, dist: ((usd - lthUsd) / lthUsd) * 100 }; }
+      else { levels.splice(levels.length - 1, 0, { label: 'LTH Realized Price', value: lthUsd, dist: ((usd - lthUsd) / lthUsd) * 100 }); }
     }
   }
 
@@ -983,7 +996,6 @@ function renderBot() {
   const bi = bot.last_indicators || {};
   const ld = bot.last_decision || {};
   const price = bi.price || 0;
-  const thbPrice = price || state.price.thb;
   const btcBal = bot.last_btc_balance || 0;
   const cashBal = bot.last_cash_balance || 0;
   const portfolioVal = bot.last_portfolio_value || 0;
