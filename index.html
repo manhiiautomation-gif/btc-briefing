@@ -590,24 +590,37 @@ async function fetchFearGreed() {
 async function fetchOnchainSignal() {
   try {
     const data = await fetchJSON(CONFIG.SIGNAL_URL);
-    state.signal = data;
+    // Map actual field names to expected structure
+    state.signal = {
+      score: data.signal_score,
+      zone: typeof data.zone === 'string' ? { label: data.zone.charAt(0).toUpperCase() + data.zone.slice(1) } : data.zone,
+      date: data.date,
+      computed_at: data.computed_at,
+      btc_close: data.btc_close,
+      groups: data.groups || {},
+      indicators: data.indicators || {},
+      history: data.history || [],
+    };
     if (data.indicators) {
-      const mvrv_ind = data.indicators.mvrv_z_score;
-      if (mvrv_ind && mvrv_ind.value !== null) {
-        // MVRV Z-Score is available, derive MVRV from NUPL
-        state.onchain.mvrv_z = mvrv_ind.value;
+      // MVRV Ratio
+      const mvrv_ind = data.indicators.btc_mvrv_ratio;
+      if (mvrv_ind && mvrv_ind.raw_value !== null && mvrv_ind.raw_value !== undefined) {
+        state.onchain.mvrv = mvrv_ind.raw_value;
+        state.onchain.mvrv_z = (mvrv_ind.percentile || 0) * 10 - 5; // scale percentile to ~z-score range
       }
-      const nupl_ind = data.indicators.nupl;
-      if (nupl_ind && nupl_ind.value !== null) {
-        state.onchain.nupl = nupl_ind.value;
-        // Derive MVRV from NUPL: NUPL = 1 - 1/MVRV, so MVRV = 1/(1-NUPL)
-        if (nupl_ind.value < 1) {
-          state.onchain.mvrv = 1 / (1 - nupl_ind.value);
-        }
+      // Derive NUPL from MVRV: NUPL = 1 - 1/MVRV
+      if (state.onchain.mvrv > 0) {
+        state.onchain.nupl = 1 - 1 / state.onchain.mvrv;
       }
-      const sopr_ind = data.indicators.sopr;
-      if (sopr_ind && sopr_ind.value !== null) {
-        state.onchain.sopr = sopr_ind.value;
+      // Puell Multiple (mining indicator, substitute for SOPR)
+      const puell_ind = data.indicators.btc_puell_multiple;
+      if (puell_ind && puell_ind.raw_value !== null) {
+        state.onchain.puell = puell_ind.raw_value;
+      }
+      // Fund Flow Ratio (on-chain)
+      const ff_ind = data.indicators.btc_fund_flow_ratio;
+      if (ff_ind && ff_ind.raw_value !== null) {
+        state.onchain.fund_flow = ff_ind.raw_value;
       }
     }
   } catch (e) {
@@ -695,8 +708,9 @@ function renderSparkline() {
 }
 
 function renderOnChain() {
-  const { mvrv, nupl, sopr } = state.onchain;
+  const { mvrv, nupl, puell } = state.onchain;
   const mv = getMvrvZone(mvrv);
+  const indCount = Object.keys(state.signal?.indicators || {}).length;
 
   let html = '';
 
@@ -708,7 +722,7 @@ function renderOnChain() {
     html += `    <span class="zone-badge" style="color:${mv.color};border-color:${mv.color}40;background:${mv.color}20">${mv.zone}</span>`;
     html += `  </div>`;
     html += `  <div class="metric-value lg">${mvrv.toFixed(3)}</div>`;
-    html += `  <div class="metric-sub"><span>Z-Score: ${state.onchain.mvrv_z.toFixed(2)}</span></div>`;
+    html += `  <div class="metric-sub"><span>Pct: ${((state.onchain.mvrv_z + 5) / 10 * 100).toFixed(1)}%</span></div>`;
     html += `</div>`;
   } else {
     html += `<div class="metric">`;
@@ -717,12 +731,12 @@ function renderOnChain() {
     html += `</div>`;
   }
 
-  // NUPL
+  // NUPL (derived from MVRV)
   html += `<div class="metric-divider"></div>`;
-  if (state.onchain.nupl !== 0 || state.signal) {
+  if (state.onchain.nupl !== null && state.onchain.nupl !== undefined && !isNaN(state.onchain.nupl)) {
     html += `<div class="metric">`;
     html += `  <div class="metric-header">`;
-    html += `    <span class="metric-label">NUPL</span>`;
+    html += `    <span class="metric-label">NUPL <span style="font-size:10px;color:var(--text-muted)">(derived)</span></span>`;
     html += `    <span style="font-size:11px;color:var(--text-secondary)">${getNuplPhase(nupl)}</span>`;
     html += `  </div>`;
     html += `  <div class="metric-value">${nupl.toFixed(3)}</div>`;
@@ -731,20 +745,22 @@ function renderOnChain() {
     html += `<div class="metric"><div class="metric-header"><span class="metric-label">NUPL</span></div><div class="no-data">N/A</div></div>`;
   }
 
-  // SOPR
+  // Puell Multiple (mining metric, replaces SOPR)
   html += `<div class="metric-divider"></div>`;
   html += `<div class="metric">`;
   html += `  <div class="metric-header">`;
-  html += `    <span class="metric-label">SOPR</span>`;
-  if (sopr !== null) {
-    const soprSignal = sopr < 0.9 ? 'Heavy Loss Selling' : sopr < 1.0 ? 'Selling at Loss' : sopr < 1.1 ? 'Normal' : sopr < 1.3 ? 'Profit Taking' : 'Strong Profit Taking';
-    html += `    <span style="font-size:11px;color:${sopr < 1 ? 'var(--green)' : 'var(--text-secondary)'}">${soprSignal}</span>`;
-  }
+    html += `    <span class="metric-label">Puell Multiple</span>`;
+    if (puell !== null && puell !== undefined) {
+      const puellSignal = puell < 0.5 ? 'Strong Buy (Miners Capitulating)' : puell < 0.8 ? 'Buy Zone' : puell < 1.2 ? 'Normal' : puell < 2.0 ? 'Overheating' : 'Sell Signal';
+      const puellColor = puell < 0.8 ? 'var(--green)' : puell < 1.2 ? 'var(--text-secondary)' : 'var(--red)';
+      html += `    <span style="font-size:11px;color:${puellColor}">${puellSignal}</span>`;
+    }
   html += `  </div>`;
-  if (sopr !== null) {
-    html += `  <div class="metric-value" style="color:${sopr < 1 ? 'var(--green)' : 'inherit'}">${sopr.toFixed(3)}</div>`;
+  if (puell !== null && puell !== undefined) {
+    const puellColor = puell < 0.8 ? 'var(--green)' : puell < 1.2 ? 'var(--text-primary)' : 'var(--red)';
+    html += `  <div class="metric-value" style="color:${puellColor}">${puell.toFixed(3)}</div>`;
   } else {
-    html += `  <div class="no-data">N/A (data not available)</div>`;
+    html += `  <div class="no-data">N/A</div>`;
   }
   html += `</div>`;
 
@@ -759,7 +775,7 @@ function renderOnChain() {
     html += `    <span class="zone-badge" style="color:${scColor};border-color:${scColor}40;background:${scColor}20">${state.signal.zone?.label || 'Neutral'}</span>`;
     html += `  </div>`;
     html += `  <div class="metric-value">${sc.toFixed(1)}<span style="font-size:14px;color:var(--text-muted)"> / 100</span></div>`;
-    html += `  <div class="source-tag">Source: btc-signal-analyzer (${state.signal.meta?.available_indicators || 0}/${state.signal.meta?.total_indicators || 0} indicators)</div>`;
+    html += `  <div class="source-tag">Source: btc-signal-analyzer (${indCount} indicators) | ${state.signal.date || 'N/A'}</div>`;
     html += `</div>`;
   }
 
@@ -767,66 +783,98 @@ function renderOnChain() {
 }
 
 function renderMomentum() {
-  // Since we don't have RSI/MACD from public APIs alone,
-  // show derivative/sentiment data from signal_score.json
   const s = state.signal;
   let html = '';
 
   if (s && s.indicators) {
-    // Funding Rate
-    const fr = s.indicators.funding_rate;
-    if (fr && fr.value !== null) {
+    const ind = s.indicators;
+
+    // Technical Momentum Group Score
+    if (s.groups && s.groups.technical_momentum) {
+      const tm = s.groups.technical_momentum;
+      const tmPct = (tm.score * 100).toFixed(1);
+      const tmColor = tm.score < 0.3 ? 'var(--green)' : tm.score < 0.6 ? 'var(--text-secondary)' : 'var(--red)';
+      const tmLabel = tm.score < 0.3 ? 'Oversold/Bearish' : tm.score < 0.6 ? 'Neutral' : 'Overbought/Bullish';
       html += `<div class="metric">`;
       html += `  <div class="metric-header">`;
-      html += `    <span class="metric-label">Funding Rate (7d avg)</span>`;
-      const frColor = fr.value > 0.01 ? 'var(--red)' : fr.value < 0 ? 'var(--green)' : 'var(--text-secondary)';
-      html += `    <span style="font-size:11px;color:${frColor}">${fr.value > 0.01 ? 'High Long Bias' : fr.value < 0 ? 'Short Bias' : 'Neutral'}</span>`;
+      html += `    <span class="metric-label">Momentum Score</span>`;
+      html += `    <span style="font-size:11px;color:${tmColor}">${tmLabel}</span>`;
       html += `  </div>`;
-      html += `  <div class="metric-value">${(fr.value * 100).toFixed(4)}%</div>`;
+      html += `  <div class="metric-value lg" style="color:${tmColor}">${tmPct}<span style="font-size:14px;color:var(--text-muted)">%</span></div>`;
+      html += `</div>`;
+    }
+
+    // Funding Rate
+    const fr = ind.btc_funding_rates;
+    if (fr && fr.raw_value !== null && fr.raw_value !== undefined) {
+      html += `<div class="metric-divider"></div>`;
+      html += `<div class="metric">`;
+      html += `  <div class="metric-header">`;
+      html += `    <span class="metric-label">Funding Rate</span>`;
+      const frColor = fr.raw_value > 0.01 ? 'var(--red)' : fr.raw_value < 0 ? 'var(--green)' : 'var(--text-secondary)';
+      html += `    <span style="font-size:11px;color:${frColor}">${fr.raw_value > 0.01 ? 'High Long Bias' : fr.raw_value < 0 ? 'Short Bias' : 'Neutral'}</span>`;
+      html += `  </div>`;
+      html += `  <div class="metric-value">${(fr.raw_value * 100).toFixed(4)}%</div>`;
       html += `  <div class="metric-sub"><span>Pct: ${(fr.percentile * 100).toFixed(1)}%</span></div>`;
       html += `</div>`;
     }
 
     // Taker Buy/Sell Ratio
-    const taker = s.indicators.taker_buy_sell_ratio;
-    if (taker && taker.value !== null) {
+    const taker = ind.btc_taker_buy_sell_ratio;
+    if (taker && taker.raw_value !== null && taker.raw_value !== undefined) {
       html += `<div class="metric-divider"></div>`;
       html += `<div class="metric">`;
       html += `  <div class="metric-header">`;
-      html += `    <span class="metric-label">Taker Buy/Sell Ratio</span>`;
-      const tColor = taker.value > 1.1 ? 'var(--green)' : taker.value < 0.9 ? 'var(--red)' : 'var(--text-secondary)';
-      html += `    <span style="font-size:11px;color:${tColor}">${taker.value > 1.1 ? 'Buyers Dominant' : taker.value < 0.9 ? 'Sellers Dominant' : 'Balanced'}</span>`;
+      html += `    <span class="metric-label">Taker Buy/Sell</span>`;
+      const tColor = taker.raw_value > 1.1 ? 'var(--green)' : taker.raw_value < 0.9 ? 'var(--red)' : 'var(--text-secondary)';
+      html += `    <span style="font-size:11px;color:${tColor}">${taker.raw_value > 1.1 ? 'Buyers Dominant' : taker.raw_value < 0.9 ? 'Sellers Dominant' : 'Balanced'}</span>`;
       html += `  </div>`;
-      html += `  <div class="metric-value">${taker.value.toFixed(3)}</div>`;
+      html += `  <div class="metric-value">${taker.raw_value.toFixed(3)}</div>`;
       html += `</div>`;
     }
 
     // Exchange Netflow
-    const nf = s.indicators.exchange_netflow;
-    if (nf && nf.value !== null) {
+    const nf = ind.btc_exchange_netflow;
+    if (nf && nf.raw_value !== null && nf.raw_value !== undefined) {
       html += `<div class="metric-divider"></div>`;
       html += `<div class="metric">`;
       html += `  <div class="metric-header">`;
-      html += `    <span class="metric-label">Exchange Netflow (7d)</span>`;
-      const nfColor = nf.value > 0 ? 'var(--red)' : 'var(--green)';
-      const nfLabel = nf.value > 0 ? 'Inflow (Selling Pressure)' : 'Outflow (Accumulation)';
+      html += `    <span class="metric-label">Exchange Netflow</span>`;
+      const nfColor = nf.raw_value > 0 ? 'var(--red)' : 'var(--green)';
+      const nfLabel = nf.raw_value > 0 ? 'Inflow (Selling)' : 'Outflow (Accumulation)';
       html += `    <span style="font-size:11px;color:${nfColor}">${nfLabel}</span>`;
       html += `  </div>`;
-      html += `  <div class="metric-value" style="color:${nfColor}">${nf.value > 0 ? '+' : ''}${nf.value.toFixed(0)} BTC</div>`;
+      html += `  <div class="metric-value" style="color:${nfColor}">${nf.raw_value > 0 ? '+' : ''}${nf.raw_value.toFixed(0)} BTC</div>`;
       html += `</div>`;
     }
 
     // Whale Ratio
-    const wr = s.indicators.whale_ratio;
-    if (wr && wr.value !== null) {
+    const wr = ind.btc_exchange_whale_ratio;
+    if (wr && wr.raw_value !== null && wr.raw_value !== undefined) {
       html += `<div class="metric-divider"></div>`;
       html += `<div class="metric">`;
       html += `  <div class="metric-header">`;
-      html += `    <span class="metric-label">Whale Ratio (7d)</span>`;
-      const wrColor = wr.value > 0.5 ? 'var(--red)' : 'var(--green)';
-      html += `    <span style="font-size:11px;color:${wrColor}">${wr.value > 0.5 ? 'High Whale Activity' : 'Normal'}</span>`;
+      html += `    <span class="metric-label">Whale Ratio</span>`;
+      const wrColor = wr.raw_value > 0.5 ? 'var(--red)' : 'var(--green)';
+      html += `    <span style="font-size:11px;color:${wrColor}">${wr.raw_value > 0.5 ? 'High Whale Activity' : 'Normal'}</span>`;
       html += `  </div>`;
-      html += `  <div class="metric-value">${(wr.value * 100).toFixed(1)}%</div>`;
+      html += `  <div class="metric-value">${(wr.raw_value * 100).toFixed(1)}%</div>`;
+      html += `</div>`;
+    }
+
+    // 7d / 30d Returns
+    const r7 = ind.return_7d;
+    const r30 = ind.return_30d;
+    if (r7 && r30 && r7.raw_value !== null && r30.raw_value !== null) {
+      html += `<div class="metric-divider"></div>`;
+      html += `<div class="metric">`;
+      html += `  <div class="metric-header"><span class="metric-label">Price Returns</span></div>`;
+      html += `  <div style="display:flex;gap:16px">`;
+      const r7c = r7.raw_value >= 0 ? 'var(--green)' : 'var(--red)';
+      const r30c = r30.raw_value >= 0 ? 'var(--green)' : 'var(--red)';
+      html += `    <div><span style="font-size:11px;color:var(--text-muted)">7d</span><div style="font-size:16px;font-weight:600;color:${r7c}">${(r7.raw_value >= 0 ? '+' : '')}${(r7.raw_value * 100).toFixed(1)}%</div></div>`;
+      html += `    <div><span style="font-size:11px;color:var(--text-muted)">30d</span><div style="font-size:16px;font-weight:600;color:${r30c}">${(r30.raw_value >= 0 ? '+' : '')}${(r30.raw_value * 100).toFixed(1)}%</div></div>`;
+      html += `  </div>`;
       html += `</div>`;
     }
   } else {
@@ -1013,9 +1061,9 @@ function renderBriefing() {
 
   // Funding rate warning
   if (state.signal && state.signal.indicators) {
-    const fr = state.signal.indicators.funding_rate;
-    if (fr && fr.value > 0.01) {
-      parts.push(`High funding rate (${(fr.value*100).toFixed(4)}%) suggests crowded long positioning — potential for squeeze.`);
+    const fr = state.signal.indicators.btc_funding_rates;
+    if (fr && fr.raw_value > 0.01) {
+      parts.push(`High funding rate (${(fr.raw_value*100).toFixed(4)}%) suggests crowded long positioning — potential for squeeze.`);
     }
   }
 
