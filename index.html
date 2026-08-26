@@ -459,7 +459,7 @@ const CONFIG = {
   BOT_STATE_URL: 'https://raw.githubusercontent.com/manhiiautomation-gif/btc-signal-analyzer/main/output/bot_state.json',
   // Public APIs
   BINANCE_API: 'https://api.binance.com/api/v3',
-  BITKUB_API: 'https://api.bitkub.com/api/market/ticker?sym=THB_BTC',
+  BITKUB_API: 'https://api.bitkub.com/api/market/ticker',
   FG_API: 'https://api.alternative.me/fng/?limit=1',
   REFRESH_INTERVAL: 5 * 60 * 1000,
   ATH_USD: 109588,
@@ -562,8 +562,9 @@ async function fetchBinancePrice() {
 async function fetchBitkubPrice() {
   try {
     const data = await fetchJSON(CONFIG.BITKUB_API);
-    if (data && data.result && data.result.THB_BTC) {
-      state.price.thb = parseFloat(data.result.THB_BTC.last);
+    // Bitkub returns flat object: { THB_BTC: {...}, THB_ETH: {...}, ... }
+    if (data && data.THB_BTC) {
+      state.price.thb = parseFloat(data.THB_BTC.last);
     }
   } catch (e) {
     // Fallback: estimate THB from USD (approx 35 THB/USD)
@@ -700,24 +701,35 @@ function renderOnChain() {
   let html = '';
 
   // MVRV
-  html += `<div class="metric">`;
-  html += `  <div class="metric-header">`;
-  html += `    <span class="metric-label">MVRV Ratio</span>`;
-  html += `    <span class="zone-badge" style="color:${mv.color};border-color:${mv.color}40;background:${mv.color}20">${mv.zone}</span>`;
-  html += `  </div>`;
-  html += `  <div class="metric-value lg">${mvrv.toFixed(3)}</div>`;
-  html += `  <div class="metric-sub"><span>Z-Score: ${state.onchain.mvrv_z.toFixed(2)}</span></div>`;
-  html += `</div>`;
+  if (state.onchain.mvrv > 0) {
+    html += `<div class="metric">`;
+    html += `  <div class="metric-header">`;
+    html += `    <span class="metric-label">MVRV Ratio</span>`;
+    html += `    <span class="zone-badge" style="color:${mv.color};border-color:${mv.color}40;background:${mv.color}20">${mv.zone}</span>`;
+    html += `  </div>`;
+    html += `  <div class="metric-value lg">${mvrv.toFixed(3)}</div>`;
+    html += `  <div class="metric-sub"><span>Z-Score: ${state.onchain.mvrv_z.toFixed(2)}</span></div>`;
+    html += `</div>`;
+  } else {
+    html += `<div class="metric">`;
+    html += `  <div class="metric-header"><span class="metric-label">MVRV Ratio</span></div>`;
+    html += `  <div class="no-data">Waiting for on-chain data...</div>`;
+    html += `</div>`;
+  }
 
   // NUPL
   html += `<div class="metric-divider"></div>`;
-  html += `<div class="metric">`;
-  html += `  <div class="metric-header">`;
-  html += `    <span class="metric-label">NUPL</span>`;
-  html += `    <span style="font-size:11px;color:var(--text-secondary)">${getNuplPhase(nupl)}</span>`;
-  html += `  </div>`;
-  html += `  <div class="metric-value">${nupl.toFixed(3)}</div>`;
-  html += `</div>`;
+  if (state.onchain.nupl !== 0 || state.signal) {
+    html += `<div class="metric">`;
+    html += `  <div class="metric-header">`;
+    html += `    <span class="metric-label">NUPL</span>`;
+    html += `    <span style="font-size:11px;color:var(--text-secondary)">${getNuplPhase(nupl)}</span>`;
+    html += `  </div>`;
+    html += `  <div class="metric-value">${nupl.toFixed(3)}</div>`;
+    html += `</div>`;
+  } else {
+    html += `<div class="metric"><div class="metric-header"><span class="metric-label">NUPL</span></div><div class="no-data">N/A</div></div>`;
+  }
 
   // SOPR
   html += `<div class="metric-divider"></div>`;
@@ -964,16 +976,20 @@ function renderBriefing() {
   const parts = [];
 
   // MVRV
-  if (mvrv < 1.0) {
-    parts.push(`MVRV at ${mvrv.toFixed(2)} is in deep accumulation zone — historically strong buy signals.`);
-  } else if (mvrv < 1.5) {
-    parts.push(`MVRV at ${mvrv.toFixed(2)} — still in accumulation territory, good for DCA.`);
-  } else if (mvrv < 2.0) {
-    parts.push(`MVRV at ${mvrv.toFixed(2)} — neutral zone, normal DCA pace recommended.`);
-  } else if (mvrv < 2.5) {
-    parts.push(`MVRV at ${mvrv.toFixed(2)} — entering euphoria, consider reducing buy size.`);
+  if (mvrv > 0) {
+    if (mvrv < 1.0) {
+      parts.push(`MVRV at ${mvrv.toFixed(2)} is in deep accumulation zone — historically strong buy signals.`);
+    } else if (mvrv < 1.5) {
+      parts.push(`MVRV at ${mvrv.toFixed(2)} — still in accumulation territory, good for DCA.`);
+    } else if (mvrv < 2.0) {
+      parts.push(`MVRV at ${mvrv.toFixed(2)} — neutral zone, normal DCA pace recommended.`);
+    } else if (mvrv < 2.5) {
+      parts.push(`MVRV at ${mvrv.toFixed(2)} — entering euphoria, consider reducing buy size.`);
+    } else {
+      parts.push(`MVRV at ${mvrv.toFixed(2)} — overvalued territory, selling signals may activate.`);
+    }
   } else {
-    parts.push(`MVRV at ${mvrv.toFixed(2)} — overvalued territory, selling signals may activate.`);
+    parts.push('On-chain data not yet available. Waiting for btc-signal-analyzer update.');
   }
 
   // Fear & Greed
