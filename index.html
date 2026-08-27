@@ -779,7 +779,7 @@ function renderOnChain() {
     html += `    <span class="zone-badge" style="color:${scColor};border-color:${scColor}40;background:${scColor}20">${state.signal.zone?.label || 'Neutral'}</span>`;
     html += `  </div>`;
     html += `  <div class="metric-value">${sc.toFixed(1)}<span style="font-size:14px;color:var(--text-muted)"> / 100</span></div>`;
-    html += `  <div class="source-tag">Source: btc-signal-analyzer (${indCount} indicators) | ${state.signal.date || 'N/A'}</div>`;
+    html += `  <div class="source-tag">Risk gauge from ${indCount} on-chain & derivative indicators — สูง = เสี่ยงซื้อ, ต่ำ = โอกาสซื้อดี</div>`;
     html += `</div>`;
   }
 
@@ -805,6 +805,7 @@ function renderMomentum() {
       html += `    <span style="font-size:11px;color:${tmColor}">${tmLabel}</span>`;
       html += `  </div>`;
       html += `  <div class="metric-value lg" style="color:${tmColor}">${tmPct}<span style="font-size:14px;color:var(--text-muted)">%</span></div>`;
+      html += `  <div class="source-tag">Weighted avg of 7d/30d/90d/365d returns + SMA ratio — สูง = ราคาขึ้นแรงเกินปกติ</div>`;
       html += `</div>`;
     }
 
